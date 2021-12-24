@@ -1,41 +1,90 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["referentialActions"]
+}
+
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-  // previewFeatures = []
+model App {
+  id          String    @id @default(uuid())
+  name        String    @db.VarChar(255)
+  description String?   @db.VarChar(255)
+  icon        String?   @map("icon_url") @db.VarChar(2083)
+  username    String?   @db.VarChar(255)
+  userId      String    @map("user_id") @db.VarChar(255)
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  messages    Message[]
+  isSystem    Boolean   @default(false)
+
+  @@map(name: "app")
 }
 
-generator dbml {
-  provider = "prisma-dbml-generator"
+model Message {
+  id          String              @id @default(uuid())
+  subject     String?             @db.VarChar(255)
+  content     String              @db.VarChar(5000)
+  appId       String              @map("app_id")
+  app         App                 @relation(fields: [appId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  rootId      String?             @map("root_id")
+  replyToId   String?             @map("reply_id")
+  username    String?             @db.VarChar(255)
+  userId      String              @map("user_id") @db.VarChar(255)
+  version     String              @default("1.0") @db.VarChar(10)
+  star        Int                 @default(0)
+  upvote      Int                 @default(0)
+  downvote    Int                 @default(0)
+  deleted     Boolean             @default(false)
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  attachments MessageAttachment[]
+  tags        TagsOnMessages[]
+
+  @@map(name: "message")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  email     String   @unique
-  password  String
-  firstname String?
-  lastname  String?
-  posts     Post[]
-  role      Role
+model Tag {
+  id        Int              @id @default(autoincrement())
+  label     String           @unique
+  value     String
+  color     String
+  type      String           @default("system")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  messages  TagsOnMessages[]
+
+  @@map(name: "tag")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  published Boolean
-  title     String
-  content   String?
-  author    User?    @relation(fields: [authorId], references: [id])
-  authorId  String?
+model TagsOnMessages {
+  messageId String  @map("message_id")
+  message   Message @relation(fields: [messageId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  tagId     Int     @map("tag_id")
+  tag       Tag     @relation(fields: [tagId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@id([tagId, messageId])
 }
 
-enum Role {
-  ADMIN
-  USER
+model MessageAttachment {
+  messageId    String     @map("message_id")
+  message      Message    @relation(fields: [messageId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  attachmentId String     @map("attachment_id")
+  attachment   Attachment @relation(fields: [attachmentId], references: [id])
+
+  @@id([attachmentId, messageId])
+}
+
+model Attachment {
+  id                String              @id @default(uuid())
+  type              String
+  url               String              @db.VarChar(2083)
+  thumbnailUrl      String              @map("thumbnail_url") @db.VarChar(2083)
+  name              String              @db.VarChar(255)
+  description       String              @db.VarChar(255)
+  contentType       String              @map("content_type") @db.VarChar(255)
+  createdAt         DateTime            @default(now()) @map("created_at")
+  MessageAttachment MessageAttachment[]
 }
